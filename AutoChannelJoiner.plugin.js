@@ -1,35 +1,44 @@
-/**
- * @name JoinVoiceChannel
- * @description Belirli bir roldeki kullanıcıların belirli bir ses kanalına katılmasını sağlar.
- * @version 1.0.0
- * @author laelareal
- * @website [Your website]
- * @source [URL to your GitHub repository]
- */
-
-
-const config = {
+// Meta bilgileri
+const meta = {
     name: "JoinVoiceChannel",
     version: "1.0.0",
-    author: "laelareal",
+    author: "Berkayy07",
     description: "Belirli bir roldeki kullanıcıların belirli bir ses kanalına katılmasını sağlar.",
-    github: "https://github.com/Berkayy07/joinvoice",
-    github_raw: "https://raw.githubusercontent.com/Berkayy07/joinvoice/main/JoinVoiceChannel.plugin.js"
+    github: "https://github.com/Berkayy07/join-voice-channel",
+    github_raw: "https://raw.githubusercontent.com/Berkayy07/join-voice-channel/main/JoinVoiceChannel.plugin.js"
 };
 
-// Değiştirmeniz gereken yerler
-let originalChannelId = "1065714205057093632"; // Kullanıcıların orijinal olarak girdiği ses kanalının ID'sini buraya girin
-let newChannelId = "1214920886730096651"; // Kullanıcıların taşınacağı yeni ses kanalının ID'sini buraya girin
-let roleId = "1065713892686311464"; // Kullanıcıların rolünün ID'sini buraya girin
 
-class Dummy {
-    constructor() {this._config = config;}
-    start() {}
-    stop() {}
+// Değiştirilmesi gerekenler
+const channelIdToJoin = "123456789012345678"; // Kullanıcıların taşınacağı ses kanalının ID'si
+const roleId = "123456789012345678"; // Kullanıcıların rolünün ID'si
+
+class AutoChannelJoiner {
+    constructor() {
+        this._config = meta;
+    }
+
+    start() {
+        // Kullanıcıların taşınacağı ses kanalının ID'sine bağlı olarak eylemleri gerçekleştirme
+        this.moveToChannel();
+    }
+
+    stop() {
+        // Eylemi durdurma
+    }
+
+    moveToChannel() {
+        // Kullanıcıların taşınacağı ses kanalına taşıma işlemi
+        const voiceState = BdApi.findModuleByProps("VoiceStateStore").getVoiceState();
+        if (voiceState && voiceState.channelId === null) {
+            BdApi.findModuleByProps("VoiceStateStore").connectToVoiceChannel(channelIdToJoin);
+        }
+    }
 }
 
+// BetterDiscord kütüphanesi yüklenmemişse kullanıcıya uyarı göster
 if (!global.ZeresPluginLibrary) {
-    BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${config.name ?? config.info.name} is missing. Please click Download Now to install it.`, {
+    BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${meta.name} is missing. Please click Download Now to install it.`, {
         confirmText: "Download Now",
         cancelText: "Cancel",
         onConfirm: () => {
@@ -49,38 +58,40 @@ if (!global.ZeresPluginLibrary) {
     });
 }
 
-module.exports = !global.ZeresPluginLibrary ? Dummy : (([Plugin, Api]) => {
+// Plugini oluşturma
+module.exports = !global.ZeresPluginLibrary ? class {
+    constructor() {
+        this._config = meta;
+    }
+    start() {
+        BdApi.showToast("Error", "Library Missing!", {
+            type: "error"
+        });
+    }
+    stop() {}
+} : (([Plugin, Api]) => {
     const plugin = (Plugin, Api) => {
-        const {DiscordModules, Patcher} = Api;
+        const { Patcher } = Api;
 
-        return class JoinVoiceChannel extends Plugin {
+        return class AutoChannelJoiner extends Plugin {
             onStart() {
-                this.patchVoiceStates();
+                // Plugin başlatıldığında otomatik işlemi gerçekleştirme
+                this.moveToChannel();
             }
 
             onStop() {
-                Patcher.unpatchAll();
+                // Plugin durdurulduğunda yapılacak işlemler
             }
 
-            patchVoiceStates() {
-                Patcher.after(DiscordModules.VoiceStateStore, "getVoiceStatesForChannel", (_, args, returnValue) => {
-                    const [channelId] = args;
-                    if (channelId === originalChannelId) {
-                        const myId = DiscordModules.UserStore.getCurrentUser().id;
-                        const memberIds = Object.keys(returnValue);
-                        if (memberIds.some(id => DiscordModules.MemberStore.getMember(channelId, id) && DiscordModules.MemberStore.getMember(channelId, id).roles.includes(roleId) && id !== myId)) {
-                            const myVoiceState = returnValue[myId];
-                            if (myVoiceState && !myVoiceState.channelId) {
-                                DiscordModules.VoiceStateStore.setSelfMute(false);
-                                DiscordModules.VoiceStateStore.setSelfDeaf(false);
-                                DiscordModules.VoiceStateStore.connectToVoiceChannel(newChannelId);
-                            }
-                        }
-                    }
-                });
+            moveToChannel() {
+                // Kullanıcıların taşınacağı ses kanalına taşıma işlemi
+                const voiceState = BdApi.findModuleByProps("VoiceStateStore").getVoiceState();
+                if (voiceState && voiceState.channelId === null) {
+                    BdApi.findModuleByProps("VoiceStateStore").connectToVoiceChannel(channelIdToJoin);
+                }
             }
         };
     };
 
     return plugin(Plugin, Api);
-})(global.ZeresPluginLibrary.buildPlugin(config));
+})(global.ZeresPluginLibrary.buildPlugin(meta));
